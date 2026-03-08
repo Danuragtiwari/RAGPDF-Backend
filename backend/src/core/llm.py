@@ -72,7 +72,7 @@ No PDF is currently uploaded, so answer from your general knowledge."""
     messages.append({"role": "user", "content": query})
 
     response = client.chat.completions.create(
-        model="model="llama-3.1-8b-instant",
+        model="llama-3.1-8b-instant",
         messages=messages,
         max_tokens=1024,
         temperature=0.7,
