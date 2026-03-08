@@ -17,3 +17,11 @@ def sliding_window_chunk(text, chunk_size=500, overlap=100):
         chunks.append(chunk)
         start += (chunk_size - overlap)
     return chunks
+
+import re
+
+def clean_name(name: str) -> str:
+    name = name.replace(".pdf", "")
+    name = name.replace(" ", "_")
+    name = re.sub(r"[^a-zA-Z0-9._-]", "", name)
+    return name[:60]   # safety length
