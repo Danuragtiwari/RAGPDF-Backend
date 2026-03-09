@@ -151,7 +151,6 @@ RAGPDF-Backend/
 ### Prerequisites
 
 - Python 3.11+ (conda recommended)
-- Node.js 18+
 - Groq API Key → [console.groq.com](https://console.groq.com) (free)
 
 ### Backend
@@ -637,5 +636,5 @@ MIT — free to use, modify, and deploy.
 ---
 
 <div align="center">
-Built with ✦ &nbsp;|&nbsp; FastAPI · React · Groq · FastEmbed · ChromaDB
+Built with Love; FastAPI · React · Groq · FastEmbed · ChromaDB
 </div>
