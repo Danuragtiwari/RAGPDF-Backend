@@ -1,22 +1,24 @@
 import chromadb
-import os
 from typing import List
 
+# In-memory client - works perfectly on Render free tier (no disk needed)
 _client = None
 
 def get_client():
     global _client
     if _client is None:
-        # Render disk path ya local path
-        chroma_path = os.getenv("CHROMA_PATH", "./chroma_db")
-        os.makedirs(chroma_path, exist_ok=True)
-        _client = chromadb.PersistentClient(path=chroma_path)
+        _client = chromadb.Client()  # ephemeral in-memory
     return _client
 
 
 def store_chunks(pdf_id: str, chunks: List[str], embeddings: List[List[float]]):
     client = get_client()
-    collection = client.get_or_create_collection(
+    # Delete existing collection if any (re-upload case)
+    try:
+        client.delete_collection(name=f"pdf_{pdf_id}")
+    except Exception:
+        pass
+    collection = client.create_collection(
         name=f"pdf_{pdf_id}",
         metadata={"hnsw:space": "cosine"}
     )
@@ -48,10 +50,9 @@ def query_pdf(pdf_id: str, query_embedding: List[float], top_k: int = 5) -> List
     retrieved = []
     if results and results['distances']:
         for score, doc in zip(results['distances'][0], results['documents'][0]):
-            if score <= 0.7:  # cosine distance: lower = better
+            if score <= 0.7:
                 retrieved.append(doc)
 
-    # Fallback: return top 3 even if threshold not met
     if not retrieved and results and results['documents']:
         retrieved = results['documents'][0][:3]
 
