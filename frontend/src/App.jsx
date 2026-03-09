@@ -1,696 +1,944 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:8000";
 
-// ── Icons ────────────────────────────────────────────────────────────────────
-const UploadIcon = () => (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-    <polyline points="17 8 12 3 7 8"/>
-    <line x1="12" y1="3" x2="12" y2="15"/>
-  </svg>
-);
-
-const TrashIcon = () => (
-  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-    <polyline points="3 6 5 6 21 6"/>
-    <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
-    <path d="M10 11v6M14 11v6"/>
-  </svg>
-);
-
-const SendIcon = () => (
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-    <line x1="22" y1="2" x2="11" y2="13"/>
-    <polygon points="22 2 15 22 11 13 2 9 22 2"/>
-  </svg>
-);
-
-const FileIcon = () => (
-  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-    <polyline points="14 2 14 8 20 8"/>
-  </svg>
-);
-
-const BotIcon = () => (
-  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-    <rect x="3" y="11" width="18" height="10" rx="2"/>
-    <circle cx="12" cy="5" r="2"/>
-    <path d="M12 7v4"/>
-    <line x1="8" y1="16" x2="8" y2="16"/>
-    <line x1="16" y1="16" x2="16" y2="16"/>
-  </svg>
-);
-
-const UserIcon = () => (
-  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
-    <circle cx="12" cy="7" r="4"/>
-  </svg>
-);
-
-const ChevronIcon = ({ open }) => (
-  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
-    style={{ transform: open ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.2s" }}>
-    <polyline points="6 9 12 15 18 9"/>
-  </svg>
-);
-
 // ── Styles ───────────────────────────────────────────────────────────────────
-const styles = `
-  @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:ital,wght@0,300;0,400;1,300&display=swap');
-
-  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
-  :root {
-    --bg: #0a0a0f;
-    --surface: #12121a;
-    --surface2: #1a1a26;
-    --surface3: #222232;
-    --border: #2a2a3e;
-    --accent: #7c6af7;
-    --accent2: #f7a26a;
-    --accent3: #6af7d4;
-    --text: #e8e8f0;
-    --text2: #9898b0;
-    --text3: #5a5a78;
-    --rag: #6af7d4;
-    --normal: #f7a26a;
-    --danger: #f76a6a;
-  }
-
-  body {
-    font-family: 'Syne', sans-serif;
-    background: var(--bg);
-    color: var(--text);
-    height: 100vh;
-    overflow: hidden;
-  }
-
-  .app {
-    display: grid;
-    grid-template-columns: 300px 1fr;
-    height: 100vh;
-    position: relative;
-  }
-
-  /* ── Sidebar ── */
-  .sidebar {
-    background: var(--surface);
-    border-right: 1px solid var(--border);
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-  }
-
-  .sidebar-header {
-    padding: 24px 20px 16px;
-    border-bottom: 1px solid var(--border);
-  }
-
-  .logo {
-    font-size: 20px;
-    font-weight: 800;
-    letter-spacing: -0.5px;
-    background: linear-gradient(135deg, var(--accent) 0%, var(--accent3) 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    margin-bottom: 4px;
-  }
-
-  .logo-sub {
-    font-size: 11px;
-    font-family: 'DM Mono', monospace;
-    color: var(--text3);
-    letter-spacing: 0.05em;
-  }
-
-  .upload-zone {
-    margin: 16px;
-    border: 1.5px dashed var(--border);
-    border-radius: 12px;
-    padding: 20px 16px;
-    text-align: center;
-    cursor: pointer;
-    transition: all 0.2s;
-    position: relative;
-    overflow: hidden;
-  }
-
-  .upload-zone:hover, .upload-zone.drag-over {
-    border-color: var(--accent);
-    background: rgba(124, 106, 247, 0.05);
-  }
-
-  .upload-zone input {
-    position: absolute;
-    inset: 0;
-    opacity: 0;
-    cursor: pointer;
-    width: 100%;
-    height: 100%;
-  }
-
-  .upload-icon-wrap {
-    width: 40px;
-    height: 40px;
-    background: rgba(124, 106, 247, 0.12);
-    border-radius: 10px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    margin: 0 auto 10px;
-    color: var(--accent);
-  }
-
-  .upload-title {
-    font-size: 13px;
-    font-weight: 600;
-    color: var(--text);
-    margin-bottom: 3px;
-  }
-
-  .upload-sub {
-    font-size: 11px;
-    font-family: 'DM Mono', monospace;
-    color: var(--text3);
-  }
-
-  .uploading-bar {
-    margin: 8px 0 0;
-    height: 3px;
-    background: var(--surface3);
-    border-radius: 99px;
-    overflow: hidden;
-  }
-
-  .uploading-bar-fill {
-    height: 100%;
-    background: linear-gradient(90deg, var(--accent), var(--accent3));
-    border-radius: 99px;
-    animation: shimmer 1.2s infinite;
-  }
-
-  @keyframes shimmer {
-    0% { width: 0%; margin-left: 0; }
-    50% { width: 60%; margin-left: 20%; }
-    100% { width: 0%; margin-left: 100%; }
-  }
-
-  .pdfs-section {
-    flex: 1;
-    overflow-y: auto;
-    padding: 8px 12px 16px;
-  }
-
-  .pdfs-title {
-    font-size: 10px;
-    font-family: 'DM Mono', monospace;
-    color: var(--text3);
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    padding: 8px 8px 10px;
-  }
-
-  .pdf-card {
-    border-radius: 10px;
-    border: 1px solid var(--border);
-    margin-bottom: 6px;
-    overflow: hidden;
-    transition: border-color 0.2s;
-  }
-
-  .pdf-card.active {
-    border-color: var(--accent);
-    background: rgba(124, 106, 247, 0.04);
-  }
-
-  .pdf-card-header {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 10px 12px;
-    cursor: pointer;
-  }
-
-  .pdf-icon {
-    color: var(--accent);
-    flex-shrink: 0;
-  }
-
-  .pdf-name {
-    flex: 1;
-    font-size: 12px;
-    font-weight: 600;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    color: var(--text);
-  }
-
-  .pdf-meta {
-    font-family: 'DM Mono', monospace;
-    font-size: 10px;
-    color: var(--text3);
-    padding: 0 12px 8px;
-  }
-
-  .pdf-actions {
-    display: flex;
-    gap: 6px;
-    padding: 0 12px 10px;
-  }
-
-  .btn-use {
-    flex: 1;
-    padding: 6px 10px;
-    border-radius: 7px;
-    font-size: 11px;
-    font-weight: 600;
-    font-family: 'Syne', sans-serif;
-    border: none;
-    cursor: pointer;
-    background: var(--accent);
-    color: white;
-    transition: opacity 0.2s;
-  }
-
-  .btn-use:hover { opacity: 0.85; }
-
-  .btn-use.active {
-    background: var(--accent3);
-    color: var(--bg);
-  }
-
-  .btn-delete {
-    padding: 6px 8px;
-    border-radius: 7px;
-    border: 1px solid var(--border);
-    background: transparent;
-    color: var(--danger);
-    cursor: pointer;
-    transition: all 0.2s;
-    display: flex;
-    align-items: center;
-  }
-
-  .btn-delete:hover {
-    background: rgba(247, 106, 106, 0.1);
-    border-color: var(--danger);
-  }
-
-  .mode-badge {
-    margin: 0 12px 16px;
-    padding: 8px 12px;
-    border-radius: 8px;
-    font-size: 11px;
-    font-family: 'DM Mono', monospace;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-  }
-
-  .mode-badge.rag {
-    background: rgba(106, 247, 212, 0.08);
-    border: 1px solid rgba(106, 247, 212, 0.2);
-    color: var(--rag);
-  }
-
-  .mode-badge.normal {
-    background: rgba(247, 162, 106, 0.08);
-    border: 1px solid rgba(247, 162, 106, 0.2);
-    color: var(--normal);
-  }
-
-  .mode-dot {
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    flex-shrink: 0;
-  }
-
-  .mode-badge.rag .mode-dot { background: var(--rag); }
-  .mode-badge.normal .mode-dot { background: var(--normal); }
-
-  /* ── Chat Area ── */
-  .chat-area {
-    display: flex;
-    flex-direction: column;
-    background: var(--bg);
-    position: relative;
-  }
-
-  .chat-header {
-    padding: 18px 28px;
-    border-bottom: 1px solid var(--border);
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-  }
-
-  .chat-title {
-    font-size: 15px;
-    font-weight: 700;
-  }
-
-  .chat-subtitle {
-    font-size: 11px;
-    font-family: 'DM Mono', monospace;
-    color: var(--text3);
-    margin-top: 2px;
-  }
-
-  .messages {
-    flex: 1;
-    overflow-y: auto;
-    padding: 24px 28px;
-    display: flex;
-    flex-direction: column;
-    gap: 20px;
-    scroll-behavior: smooth;
-  }
-
-  .messages::-webkit-scrollbar { width: 4px; }
-  .messages::-webkit-scrollbar-track { background: transparent; }
-  .messages::-webkit-scrollbar-thumb { background: var(--border); border-radius: 99px; }
-
-  .empty-state {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 12px;
-    color: var(--text3);
-    text-align: center;
-    padding: 40px;
-  }
-
-  .empty-icon {
-    font-size: 48px;
-    opacity: 0.3;
-  }
-
-  .empty-title {
-    font-size: 16px;
-    font-weight: 700;
-    color: var(--text2);
-  }
-
-  .empty-sub {
-    font-size: 12px;
-    font-family: 'DM Mono', monospace;
-    max-width: 300px;
-    line-height: 1.6;
-  }
-
-  .message {
-    display: flex;
-    gap: 12px;
-    animation: fadeUp 0.3s ease;
-  }
-
-  @keyframes fadeUp {
-    from { opacity: 0; transform: translateY(8px); }
-    to { opacity: 1; transform: translateY(0); }
-  }
-
-  .message.user { flex-direction: row-reverse; }
-
-  .avatar {
-    width: 32px;
-    height: 32px;
-    border-radius: 8px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-  }
-
-  .avatar.bot {
-    background: rgba(124, 106, 247, 0.15);
-    color: var(--accent);
-    border: 1px solid rgba(124, 106, 247, 0.2);
-  }
-
-  .avatar.user {
-    background: rgba(247, 162, 106, 0.15);
-    color: var(--accent2);
-    border: 1px solid rgba(247, 162, 106, 0.2);
-  }
-
-  .message-content { max-width: 70%; }
-
-  .message-bubble {
-    padding: 12px 16px;
-    border-radius: 12px;
-    font-size: 14px;
-    line-height: 1.65;
-  }
-
-  .message.bot .message-bubble {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    color: var(--text);
-    border-radius: 4px 12px 12px 12px;
-  }
-
-  .message.user .message-bubble {
-    background: var(--accent);
-    color: white;
-    border-radius: 12px 4px 12px 12px;
-  }
-
-  .message-meta {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    margin-top: 5px;
-    padding: 0 4px;
-  }
-
-  .message.user .message-meta { justify-content: flex-end; }
-
-  .msg-mode {
-    font-size: 10px;
-    font-family: 'DM Mono', monospace;
-    padding: 2px 6px;
-    border-radius: 4px;
-  }
-
-  .msg-mode.rag {
-    background: rgba(106, 247, 212, 0.1);
-    color: var(--rag);
-  }
-
-  .msg-mode.normal {
-    background: rgba(247, 162, 106, 0.1);
-    color: var(--normal);
-  }
-
-  .sources-toggle {
-    font-size: 10px;
-    font-family: 'DM Mono', monospace;
-    color: var(--text3);
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    gap: 3px;
-    background: none;
-    border: none;
-    padding: 0;
-  }
-
-  .sources-toggle:hover { color: var(--text2); }
-
-  .sources-box {
-    margin-top: 8px;
-    background: var(--surface2);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 10px 12px;
-    font-size: 11px;
-    font-family: 'DM Mono', monospace;
-    color: var(--text3);
-    line-height: 1.6;
-    max-height: 120px;
-    overflow-y: auto;
-  }
-
-  .sources-label {
-    font-size: 10px;
-    color: var(--rag);
-    margin-bottom: 6px;
-    font-weight: 600;
-  }
-
-  .source-chunk {
-    border-left: 2px solid var(--border);
-    padding-left: 8px;
-    margin-bottom: 8px;
-    white-space: pre-wrap;
-    word-break: break-word;
-  }
-
-  /* Typing indicator */
-  .typing {
-    display: flex;
-    gap: 4px;
-    padding: 14px 16px;
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 4px 12px 12px 12px;
-    width: fit-content;
-  }
-
-  .typing span {
-    width: 7px;
-    height: 7px;
-    background: var(--text3);
-    border-radius: 50%;
-    animation: bounce 1.2s infinite;
-  }
-
-  .typing span:nth-child(2) { animation-delay: 0.2s; }
-  .typing span:nth-child(3) { animation-delay: 0.4s; }
-
-  @keyframes bounce {
-    0%, 60%, 100% { transform: translateY(0); }
-    30% { transform: translateY(-6px); }
-  }
-
-  /* Input */
-  .input-area {
-    padding: 16px 28px 20px;
-    border-top: 1px solid var(--border);
-    background: var(--bg);
-  }
-
-  .input-wrap {
-    display: flex;
-    gap: 10px;
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 14px;
-    padding: 10px 10px 10px 16px;
-    transition: border-color 0.2s;
-  }
-
-  .input-wrap:focus-within { border-color: var(--accent); }
-
-  .input-wrap textarea {
-    flex: 1;
-    background: none;
-    border: none;
-    outline: none;
-    color: var(--text);
-    font-family: 'Syne', sans-serif;
-    font-size: 14px;
-    resize: none;
-    max-height: 120px;
-    line-height: 1.5;
-  }
-
-  .input-wrap textarea::placeholder { color: var(--text3); }
-
-  .send-btn {
-    width: 38px;
-    height: 38px;
-    border-radius: 10px;
-    border: none;
-    background: var(--accent);
-    color: white;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-    transition: all 0.2s;
-    align-self: flex-end;
-  }
-
-  .send-btn:hover { background: #6a58e0; transform: scale(1.05); }
-  .send-btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
-
-  .input-hint {
-    font-size: 10px;
-    font-family: 'DM Mono', monospace;
-    color: var(--text3);
-    margin-top: 8px;
-    text-align: center;
-  }
-
-  /* Toast */
-  .toast {
-    position: fixed;
-    bottom: 24px;
-    right: 24px;
-    background: var(--surface2);
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    padding: 12px 16px;
-    font-size: 13px;
-    font-family: 'DM Mono', monospace;
-    color: var(--text);
-    z-index: 999;
-    animation: slideIn 0.3s ease;
-    max-width: 300px;
-  }
-
-  .toast.error { border-color: var(--danger); color: var(--danger); }
-  .toast.success { border-color: var(--rag); color: var(--rag); }
-
-  @keyframes slideIn {
-    from { opacity: 0; transform: translateY(10px); }
-    to { opacity: 1; transform: translateY(0); }
-  }
-
-  .pdfs-section::-webkit-scrollbar { width: 3px; }
-  .pdfs-section::-webkit-scrollbar-thumb { background: var(--border); border-radius: 99px; }
-`;
-
-// ── Toast ─────────────────────────────────────────────────────────────────────
-function Toast({ message, type, onClose }) {
-  useEffect(() => {
-    const t = setTimeout(onClose, 3000);
-    return () => clearTimeout(t);
-  }, [onClose]);
-  return <div className={`toast ${type}`}>{message}</div>;
+const css = `
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=JetBrains+Mono:wght@300;400;500&family=Outfit:wght@300;400;500;600&display=swap');
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --ink: #0d0d0d;
+  --ink2: #161618;
+  --ink3: #1e1e22;
+  --ink4: #28282e;
+  --paper: #f0ede6;
+  --paper2: #e8e4db;
+  --gold: #c9a84c;
+  --gold2: #e8c96a;
+  --gold3: #f5e4a8;
+  --teal: #4ecdc4;
+  --rose: #ff6b6b;
+  --text: #f0ede6;
+  --text2: #a09880;
+  --text3: #5a5650;
+  --border: rgba(201,168,76,0.15);
+  --border2: rgba(201,168,76,0.08);
+  --glow: rgba(201,168,76,0.12);
 }
 
-// ── Message Component ─────────────────────────────────────────────────────────
-function Message({ msg }) {
-  const [showSources, setShowSources] = useState(false);
-  const isBot = msg.role === "assistant";
+html, body, #root {
+  height: 100%;
+  overflow: hidden;
+  background: var(--ink);
+  color: var(--text);
+  font-family: 'Outfit', sans-serif;
+}
 
+/* Noise texture overlay */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+  pointer-events: none;
+  z-index: 9999;
+  opacity: 0.4;
+}
+
+.app {
+  display: grid;
+  grid-template-columns: 320px 1fr;
+  height: 100vh;
+  position: relative;
+}
+
+/* ══ SIDEBAR ══════════════════════════════════════════════════════════════ */
+.sidebar {
+  background: var(--ink2);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  overflow: hidden;
+}
+
+.sidebar::before {
+  content: '';
+  position: absolute;
+  top: -100px;
+  left: -100px;
+  width: 300px;
+  height: 300px;
+  background: radial-gradient(circle, rgba(201,168,76,0.06) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+.brand {
+  padding: 28px 24px 20px;
+  border-bottom: 1px solid var(--border2);
+  position: relative;
+}
+
+.brand-eyebrow {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  letter-spacing: 0.25em;
+  color: var(--gold);
+  text-transform: uppercase;
+  margin-bottom: 6px;
+  opacity: 0.8;
+}
+
+.brand-name {
+  font-family: 'Playfair Display', serif;
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: -0.5px;
+  line-height: 1;
+  color: var(--text);
+}
+
+.brand-name span {
+  color: var(--gold);
+  font-style: italic;
+}
+
+.brand-tagline {
+  font-size: 11px;
+  color: var(--text3);
+  margin-top: 6px;
+  font-weight: 300;
+  letter-spacing: 0.02em;
+}
+
+/* Upload area */
+.upload-section {
+  padding: 16px;
+  border-bottom: 1px solid var(--border2);
+}
+
+.upload-drop {
+  position: relative;
+  border: 1.5px dashed var(--border);
+  border-radius: 16px;
+  padding: 24px 16px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  background: var(--border2);
+  overflow: hidden;
+}
+
+.upload-drop::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at 50% 50%, rgba(201,168,76,0.08) 0%, transparent 60%);
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+
+.upload-drop:hover::before,
+.upload-drop.drag { opacity: 1; }
+
+.upload-drop:hover,
+.upload-drop.drag {
+  border-color: rgba(201,168,76,0.5);
+  background: rgba(201,168,76,0.04);
+  transform: translateY(-1px);
+}
+
+.upload-drop input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.upload-icon {
+  width: 44px;
+  height: 44px;
+  margin: 0 auto 12px;
+  background: linear-gradient(135deg, rgba(201,168,76,0.15), rgba(201,168,76,0.05));
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  transition: transform 0.3s;
+}
+
+.upload-drop:hover .upload-icon { transform: scale(1.1) rotate(-5deg); }
+
+.upload-label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text);
+  margin-bottom: 4px;
+}
+
+.upload-sub {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  color: var(--text3);
+}
+
+/* Upload progress */
+.upload-progress {
+  margin-top: 10px;
+  height: 2px;
+  background: var(--ink4);
+  border-radius: 99px;
+  overflow: hidden;
+}
+
+.upload-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--gold), var(--gold2), var(--teal));
+  background-size: 200% 100%;
+  border-radius: 99px;
+  animation: progressFlow 1.5s linear infinite;
+}
+
+@keyframes progressFlow {
+  0% { background-position: 200% 0; width: 30%; margin-left: 0; }
+  50% { width: 60%; margin-left: 20%; }
+  100% { background-position: -200% 0; width: 30%; margin-left: 100%; }
+}
+
+/* Mode indicator */
+.mode-pill {
+  margin: 12px 16px 0;
+  padding: 8px 14px;
+  border-radius: 99px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.05em;
+  transition: all 0.4s;
+}
+
+.mode-pill.rag {
+  background: rgba(78,205,196,0.08);
+  border: 1px solid rgba(78,205,196,0.2);
+  color: var(--teal);
+}
+
+.mode-pill.normal {
+  background: rgba(201,168,76,0.08);
+  border: 1px solid rgba(201,168,76,0.2);
+  color: var(--gold);
+}
+
+.mode-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  animation: pulse 2s infinite;
+}
+
+.mode-pill.rag .mode-dot { background: var(--teal); box-shadow: 0 0 6px var(--teal); }
+.mode-pill.normal .mode-dot { background: var(--gold); box-shadow: 0 0 6px var(--gold); }
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.6; transform: scale(0.8); }
+}
+
+/* PDF List */
+.pdf-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px 16px 16px;
+}
+
+.pdf-list::-webkit-scrollbar { width: 3px; }
+.pdf-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 99px; }
+
+.pdf-list-title {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--text3);
+  padding: 8px 4px 12px;
+}
+
+.pdf-item {
+  border-radius: 14px;
+  border: 1px solid var(--border2);
+  margin-bottom: 8px;
+  overflow: hidden;
+  transition: all 0.25s;
+  cursor: pointer;
+}
+
+.pdf-item:hover { border-color: var(--border); }
+.pdf-item.active {
+  border-color: rgba(201,168,76,0.4);
+  background: rgba(201,168,76,0.04);
+  box-shadow: 0 0 20px rgba(201,168,76,0.05);
+}
+
+.pdf-item-top {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+}
+
+.pdf-file-icon {
+  width: 34px;
+  height: 34px;
+  background: linear-gradient(135deg, rgba(201,168,76,0.2), rgba(201,168,76,0.05));
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  flex-shrink: 0;
+}
+
+.pdf-item.active .pdf-file-icon {
+  background: linear-gradient(135deg, rgba(201,168,76,0.3), rgba(201,168,76,0.1));
+  border-color: rgba(201,168,76,0.4);
+}
+
+.pdf-info { flex: 1; min-width: 0; }
+
+.pdf-name {
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--text);
+  margin-bottom: 2px;
+}
+
+.pdf-chunks {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  color: var(--text3);
+}
+
+.pdf-chevron {
+  color: var(--text3);
+  transition: transform 0.2s;
+  flex-shrink: 0;
+}
+
+.pdf-chevron.open { transform: rotate(180deg); }
+
+.pdf-actions {
+  padding: 0 14px 12px;
+  display: flex;
+  gap: 8px;
+}
+
+.btn-activate {
+  flex: 1;
+  padding: 7px 12px;
+  border-radius: 9px;
+  font-size: 11px;
+  font-weight: 600;
+  font-family: 'Outfit', sans-serif;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text2);
+  cursor: pointer;
+  transition: all 0.2s;
+  letter-spacing: 0.02em;
+}
+
+.btn-activate:hover {
+  background: rgba(201,168,76,0.08);
+  border-color: rgba(201,168,76,0.3);
+  color: var(--gold);
+}
+
+.btn-activate.on {
+  background: linear-gradient(135deg, rgba(201,168,76,0.2), rgba(201,168,76,0.08));
+  border-color: rgba(201,168,76,0.5);
+  color: var(--gold2);
+}
+
+.btn-del {
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
+  border: 1px solid var(--border2);
+  background: transparent;
+  color: var(--text3);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  font-size: 14px;
+}
+
+.btn-del:hover {
+  background: rgba(255,107,107,0.1);
+  border-color: rgba(255,107,107,0.3);
+  color: var(--rose);
+}
+
+/* ══ MAIN CHAT ══════════════════════════════════════════════════════════════ */
+.main {
+  display: flex;
+  flex-direction: column;
+  background: var(--ink);
+  position: relative;
+  overflow: hidden;
+}
+
+/* Background decoration */
+.main::before {
+  content: '';
+  position: absolute;
+  bottom: -200px;
+  right: -200px;
+  width: 600px;
+  height: 600px;
+  background: radial-gradient(circle, rgba(201,168,76,0.03) 0%, transparent 60%);
+  pointer-events: none;
+}
+
+.main::after {
+  content: '';
+  position: absolute;
+  top: -100px;
+  left: 30%;
+  width: 400px;
+  height: 400px;
+  background: radial-gradient(circle, rgba(78,205,196,0.02) 0%, transparent 60%);
+  pointer-events: none;
+}
+
+/* Header */
+.chat-header {
+  padding: 20px 32px;
+  border-bottom: 1px solid var(--border2);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  backdrop-filter: blur(10px);
+  position: relative;
+  z-index: 10;
+}
+
+.header-left {}
+
+.header-title {
+  font-family: 'Playfair Display', serif;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.header-doc-badge {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  background: rgba(201,168,76,0.1);
+  border: 1px solid rgba(201,168,76,0.25);
+  color: var(--gold);
+  padding: 3px 10px;
+  border-radius: 99px;
+  font-style: normal;
+  letter-spacing: 0.03em;
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.header-sub {
+  font-size: 12px;
+  color: var(--text3);
+  margin-top: 3px;
+  font-weight: 300;
+}
+
+.btn-clear {
+  padding: 7px 16px;
+  border-radius: 99px;
+  border: 1px solid var(--border2);
+  background: transparent;
+  color: var(--text3);
+  font-size: 11px;
+  font-family: 'JetBrains Mono', monospace;
+  cursor: pointer;
+  letter-spacing: 0.05em;
+  transition: all 0.2s;
+}
+
+.btn-clear:hover {
+  border-color: var(--border);
+  color: var(--text2);
+}
+
+/* Messages */
+.messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+  position: relative;
+  z-index: 1;
+}
+
+.messages::-webkit-scrollbar { width: 4px; }
+.messages::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 99px; }
+
+/* Empty state */
+.empty {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  text-align: center;
+  padding: 60px 40px;
+  animation: fadeIn 0.6s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.empty-ornament {
+  font-family: 'Playfair Display', serif;
+  font-size: 64px;
+  color: var(--gold);
+  opacity: 0.12;
+  line-height: 1;
+  margin-bottom: 20px;
+  font-style: italic;
+}
+
+.empty-title {
+  font-family: 'Playfair Display', serif;
+  font-size: 22px;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 10px;
+  opacity: 0.7;
+}
+
+.empty-desc {
+  font-size: 13px;
+  color: var(--text3);
+  max-width: 360px;
+  line-height: 1.7;
+  font-weight: 300;
+}
+
+.empty-hints {
+  display: flex;
+  gap: 10px;
+  margin-top: 28px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.hint-chip {
+  padding: 8px 16px;
+  border: 1px solid var(--border);
+  border-radius: 99px;
+  font-size: 12px;
+  color: var(--text3);
+  font-family: 'JetBrains Mono', monospace;
+  cursor: pointer;
+  transition: all 0.2s;
+  background: var(--border2);
+}
+
+.hint-chip:hover {
+  border-color: rgba(201,168,76,0.3);
+  color: var(--gold);
+  background: rgba(201,168,76,0.05);
+}
+
+/* Message bubbles */
+.msg-row {
+  display: flex;
+  gap: 14px;
+  animation: msgIn 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes msgIn {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.msg-row.user { flex-direction: row-reverse; }
+
+.avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  font-size: 16px;
+  position: relative;
+}
+
+.avatar.bot {
+  background: linear-gradient(135deg, rgba(201,168,76,0.2), rgba(201,168,76,0.05));
+  border: 1px solid rgba(201,168,76,0.25);
+}
+
+.avatar.user {
+  background: linear-gradient(135deg, rgba(78,205,196,0.2), rgba(78,205,196,0.05));
+  border: 1px solid rgba(78,205,196,0.25);
+}
+
+.msg-content { max-width: 68%; }
+
+.bubble {
+  padding: 14px 18px;
+  border-radius: 18px;
+  font-size: 14px;
+  line-height: 1.7;
+  font-weight: 300;
+}
+
+.msg-row.bot .bubble {
+  background: var(--ink2);
+  border: 1px solid var(--border2);
+  color: var(--text);
+  border-radius: 4px 18px 18px 18px;
+}
+
+.msg-row.user .bubble {
+  background: linear-gradient(135deg, rgba(201,168,76,0.18), rgba(201,168,76,0.08));
+  border: 1px solid rgba(201,168,76,0.25);
+  color: var(--text);
+  border-radius: 18px 4px 18px 18px;
+}
+
+.msg-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+  padding: 0 4px;
+}
+
+.msg-row.user .msg-meta { justify-content: flex-end; }
+
+.tag-rag {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  padding: 2px 8px;
+  border-radius: 99px;
+  letter-spacing: 0.08em;
+  background: rgba(78,205,196,0.08);
+  border: 1px solid rgba(78,205,196,0.2);
+  color: var(--teal);
+}
+
+.tag-normal {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  padding: 2px 8px;
+  border-radius: 99px;
+  letter-spacing: 0.08em;
+  background: rgba(201,168,76,0.08);
+  border: 1px solid rgba(201,168,76,0.2);
+  color: var(--gold);
+}
+
+.src-toggle {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  color: var(--text3);
+  cursor: pointer;
+  background: none;
+  border: none;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  transition: color 0.2s;
+}
+
+.src-toggle:hover { color: var(--gold); }
+
+.src-box {
+  margin-top: 10px;
+  background: var(--ink3);
+  border: 1px solid var(--border2);
+  border-left: 2px solid var(--gold);
+  border-radius: 0 12px 12px 12px;
+  padding: 12px 14px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: var(--text3);
+  line-height: 1.65;
+  max-height: 140px;
+  overflow-y: auto;
+  animation: fadeIn 0.2s ease;
+}
+
+.src-label {
+  font-size: 9px;
+  letter-spacing: 0.15em;
+  color: var(--gold);
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+
+.src-chunk {
+  margin-bottom: 8px;
+  padding-left: 10px;
+  border-left: 1px solid var(--border);
+  word-break: break-word;
+  white-space: pre-wrap;
+}
+
+/* Typing */
+.typing-row {
+  display: flex;
+  gap: 14px;
+  animation: msgIn 0.3s ease;
+}
+
+.typing-bubble {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 14px 18px;
+  background: var(--ink2);
+  border: 1px solid var(--border2);
+  border-radius: 4px 18px 18px 18px;
+}
+
+.typing-dot {
+  width: 6px;
+  height: 6px;
+  background: var(--gold);
+  border-radius: 50%;
+  animation: typingBounce 1.4s infinite;
+  opacity: 0.5;
+}
+
+.typing-dot:nth-child(2) { animation-delay: 0.2s; background: var(--gold2); }
+.typing-dot:nth-child(3) { animation-delay: 0.4s; background: var(--teal); }
+
+@keyframes typingBounce {
+  0%, 60%, 100% { transform: translateY(0); opacity: 0.5; }
+  30% { transform: translateY(-7px); opacity: 1; }
+}
+
+/* ══ INPUT AREA ══════════════════════════════════════════════════════════════ */
+.input-area {
+  padding: 20px 32px 24px;
+  border-top: 1px solid var(--border2);
+  position: relative;
+  z-index: 10;
+}
+
+.input-box {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+  background: var(--ink2);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 14px 14px 14px 20px;
+  transition: border-color 0.3s, box-shadow 0.3s;
+  position: relative;
+}
+
+.input-box:focus-within {
+  border-color: rgba(201,168,76,0.4);
+  box-shadow: 0 0 30px rgba(201,168,76,0.06);
+}
+
+.input-box textarea {
+  flex: 1;
+  background: none;
+  border: none;
+  outline: none;
+  color: var(--text);
+  font-family: 'Outfit', sans-serif;
+  font-size: 14px;
+  font-weight: 300;
+  resize: none;
+  max-height: 130px;
+  line-height: 1.6;
+}
+
+.input-box textarea::placeholder {
+  color: var(--text3);
+  font-style: italic;
+}
+
+.send-btn {
+  width: 42px;
+  height: 42px;
+  border-radius: 14px;
+  border: none;
+  background: linear-gradient(135deg, var(--gold), #a87c2a);
+  color: var(--ink);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  font-size: 18px;
+}
+
+.send-btn:hover:not(:disabled) {
+  transform: scale(1.08) rotate(-5deg);
+  box-shadow: 0 4px 20px rgba(201,168,76,0.4);
+}
+
+.send-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+  background: var(--ink4);
+}
+
+.input-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 10px;
+  padding: 0 4px;
+}
+
+.input-hint {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  color: var(--text3);
+}
+
+.char-count {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  color: var(--text3);
+}
+
+/* ══ TOAST ═══════════════════════════════════════════════════════════════════ */
+.toast-wrap {
+  position: fixed;
+  bottom: 28px;
+  right: 28px;
+  z-index: 99999;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.toast {
+  padding: 12px 18px;
+  border-radius: 14px;
+  font-size: 12px;
+  font-family: 'JetBrains Mono', monospace;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  animation: toastIn 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+  max-width: 320px;
+  backdrop-filter: blur(10px);
+}
+
+@keyframes toastIn {
+  from { opacity: 0; transform: translateX(20px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+.toast.success {
+  background: rgba(14,14,14,0.95);
+  border: 1px solid rgba(78,205,196,0.3);
+  color: var(--teal);
+}
+
+.toast.error {
+  background: rgba(14,14,14,0.95);
+  border: 1px solid rgba(255,107,107,0.3);
+  color: var(--rose);
+}
+
+.toast.info {
+  background: rgba(14,14,14,0.95);
+  border: 1px solid var(--border);
+  color: var(--gold);
+}
+`;
+
+// ── Utility Components ────────────────────────────────────────────────────────
+function Toast({ toasts }) {
   return (
-    <div className={`message ${isBot ? "bot" : "user"}`}>
-      <div className={`avatar ${isBot ? "bot" : "user"}`}>
-        {isBot ? <BotIcon /> : <UserIcon />}
+    <div className="toast-wrap">
+      {toasts.map(t => (
+        <div key={t.id} className={`toast ${t.type}`}>
+          <span>{t.type === 'success' ? '✦' : t.type === 'error' ? '✕' : '◈'}</span>
+          {t.msg}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function SourceBox({ sources }) {
+  const [open, setOpen] = useState(false);
+  if (!sources?.length) return null;
+  return (
+    <>
+      <button className="src-toggle" onClick={() => setOpen(o => !o)}>
+        {open ? '▴' : '▾'} {open ? 'hide sources' : `view sources (${sources.length})`}
+      </button>
+      {open && (
+        <div className="src-box">
+          <div className="src-label">Retrieved Context</div>
+          {sources.map((s, i) => (
+            <div key={i} className="src-chunk">
+              {s.slice(0, 280)}{s.length > 280 ? '…' : ''}
+            </div>
+          ))}
+        </div>
+      )}
+    </>
+  );
+}
+
+function Message({ msg }) {
+  const isUser = msg.role === 'user';
+  return (
+    <div className={`msg-row ${isUser ? 'user' : 'bot'}`}>
+      <div className={`avatar ${isUser ? 'user' : 'bot'}`}>
+        {isUser ? '◎' : '✦'}
       </div>
-      <div className="message-content">
-        <div className="message-bubble">{msg.content}</div>
-        {isBot && (
-          <div className="message-meta">
-            {msg.mode && (
-              <span className={`msg-mode ${msg.mode}`}>
-                {msg.mode === "rag" ? "📄 RAG" : "💬 Normal"}
-              </span>
-            )}
-            {msg.sources && msg.sources.length > 0 && (
-              <button className="sources-toggle" onClick={() => setShowSources(!showSources)}>
-                sources <ChevronIcon open={showSources} />
-              </button>
-            )}
-          </div>
-        )}
-        {showSources && msg.sources && msg.sources.length > 0 && (
-          <div className="sources-box">
-            <div className="sources-label">Retrieved Context</div>
-            {msg.sources.map((s, i) => (
-              <div key={i} className="source-chunk">{s.slice(0, 300)}{s.length > 300 ? "..." : ""}</div>
-            ))}
+      <div className="msg-content">
+        <div className="bubble">{msg.content}</div>
+        {!isUser && (
+          <div className="msg-meta">
+            {msg.mode === 'rag'
+              ? <span className="tag-rag">◈ RAG</span>
+              : <span className="tag-normal">◇ General</span>
+            }
+            <SourceBox sources={msg.sources} />
           </div>
         )}
       </div>
@@ -699,288 +947,246 @@ function Message({ msg }) {
 }
 
 // ── Main App ──────────────────────────────────────────────────────────────────
+const HINTS = [
+  'Summarize this document',
+  'What are the key points?',
+  'Explain in simple terms',
+  'List the main topics',
+];
+
 export default function App() {
   const [pdfs, setPdfs] = useState([]);
-  const [activePdfId, setActivePdfId] = useState(null);
+  const [activePdf, setActivePdf] = useState(null);
   const [messages, setMessages] = useState([]);
-  const [input, setInput] = useState("");
+  const [input, setInput] = useState('');
   const [uploading, setUploading] = useState(false);
   const [thinking, setThinking] = useState(false);
-  const [toast, setToast] = useState(null);
-  const [expandedPdf, setExpandedPdf] = useState(null);
-  const [dragOver, setDragOver] = useState(false);
-  const messagesEndRef = useRef(null);
-  const textareaRef = useRef(null);
+  const [expanded, setExpanded] = useState(null);
+  const [drag, setDrag] = useState(false);
+  const [toasts, setToasts] = useState([]);
+  const endRef = useRef(null);
+  const taRef = useRef(null);
 
-  const activePdf = pdfs.find(p => p.pdf_id === activePdfId);
+  useEffect(() => { endRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages, thinking]);
 
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, thinking]);
+  const toast = useCallback((msg, type = 'info') => {
+    const id = Date.now();
+    setToasts(p => [...p, { id, msg, type }]);
+    setTimeout(() => setToasts(p => p.filter(t => t.id !== id)), 3500);
+  }, []);
 
-  const showToast = (message, type = "success") => {
-    setToast({ message, type });
-  };
-
-  const handleUpload = async (file) => {
-    if (!file || !file.name.endsWith(".pdf")) {
-      showToast("Only PDF files allowed!", "error");
-      return;
-    }
-
+  const handleFile = async (file) => {
+    if (!file?.name.endsWith('.pdf')) return toast('Only PDF files allowed', 'error');
     setUploading(true);
-    const formData = new FormData();
-    formData.append("file", file);
-
+    const fd = new FormData();
+    fd.append('file', file);
     try {
-      const res = await fetch(`${API_BASE}/upload-pdf`, {
-        method: "POST",
-        body: formData,
-      });
+      const res = await fetch(`${API_BASE}/upload-pdf`, { method: 'POST', body: fd });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.detail || "Upload failed");
-
-      const newPdf = {
-        pdf_id: data.pdf_id,
-        name: data.filename,
-        chunks_count: data.chunks_count,
-      };
-      setPdfs(prev => [...prev, newPdf]);
-      setActivePdfId(data.pdf_id);
-      setExpandedPdf(data.pdf_id);
-      showToast(`✓ ${data.filename} — ${data.chunks_count} chunks created`, "success");
-    } catch (err) {
-      showToast(err.message, "error");
+      if (!res.ok) throw new Error(data.detail);
+      const newPdf = { pdf_id: data.pdf_id, name: data.filename, chunks: data.chunks_count };
+      setPdfs(p => [...p, newPdf]);
+      setActivePdf(newPdf.pdf_id);
+      setExpanded(newPdf.pdf_id);
+      toast(`${data.filename} — ${data.chunks_count} chunks created`, 'success');
+    } catch (e) {
+      toast(e.message, 'error');
     } finally {
       setUploading(false);
     }
   };
 
-  const handleRemovePdf = async (pdf_id) => {
+  const removePdf = async (pdf_id) => {
     try {
-      const res = await fetch(`${API_BASE}/remove-pdf/${pdf_id}`, { method: "DELETE" });
-      if (!res.ok) throw new Error("Remove failed");
-      setPdfs(prev => prev.filter(p => p.pdf_id !== pdf_id));
-      if (activePdfId === pdf_id) setActivePdfId(null);
-      showToast("PDF removed. Switching to normal chat.", "success");
-    } catch (err) {
-      showToast(err.message, "error");
+      await fetch(`${API_BASE}/remove-pdf/${pdf_id}`, { method: 'DELETE' });
+      setPdfs(p => p.filter(x => x.pdf_id !== pdf_id));
+      if (activePdf === pdf_id) setActivePdf(null);
+      toast('PDF removed — switched to general mode', 'info');
+    } catch (e) {
+      toast(e.message, 'error');
     }
   };
 
-  const handleSend = async () => {
-    const query = input.trim();
-    if (!query || thinking) return;
-
-    const userMsg = { role: "user", content: query };
-    const newMessages = [...messages, userMsg];
-    setMessages(newMessages);
-    setInput("");
+  const send = async (text) => {
+    const q = (text || input).trim();
+    if (!q || thinking) return;
+    setMessages(p => [...p, { role: 'user', content: q }]);
+    setInput('');
+    if (taRef.current) taRef.current.style.height = 'auto';
     setThinking(true);
-
     try {
       const res = await fetch(`${API_BASE}/chat`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          query,
-          pdf_id: activePdfId || null,
+          query: q,
+          pdf_id: activePdf || null,
           chat_history: messages.map(m => ({ role: m.role, content: m.content })),
         }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.detail || "Chat failed");
-
-      setMessages(prev => [...prev, {
-        role: "assistant",
-        content: data.answer,
-        mode: data.mode,
-        sources: data.sources || [],
-      }]);
-    } catch (err) {
-      setMessages(prev => [...prev, {
-        role: "assistant",
-        content: `Error: ${err.message}`,
-        mode: "normal",
-        sources: [],
-      }]);
+      if (!res.ok) throw new Error(data.detail);
+      setMessages(p => [...p, { role: 'assistant', content: data.answer, mode: data.mode, sources: data.sources }]);
+    } catch (e) {
+      setMessages(p => [...p, { role: 'assistant', content: `Error: ${e.message}`, mode: 'normal', sources: [] }]);
     } finally {
       setThinking(false);
     }
   };
 
-  const handleKeyDown = (e) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      handleSend();
-    }
-  };
-
-  const handleDrop = (e) => {
-    e.preventDefault();
-    setDragOver(false);
-    const file = e.dataTransfer.files[0];
-    if (file) handleUpload(file);
-  };
+  const activePdfInfo = pdfs.find(p => p.pdf_id === activePdf);
+  const isRag = !!activePdf && !!activePdfInfo;
 
   return (
     <>
-      <style>{styles}</style>
+      <style>{css}</style>
       <div className="app">
 
-        {/* ── Sidebar ── */}
-        <div className="sidebar">
-          <div className="sidebar-header">
-            <div className="logo">RAG·PDF</div>
-            <div className="logo-sub">Retrieval Augmented Generation</div>
+        {/* ── SIDEBAR ── */}
+        <aside className="sidebar">
+          <div className="brand">
+            <div className="brand-eyebrow">Retrieval Augmented Generation</div>
+            <div className="brand-name">Doc<span>Mind</span></div>
+            <div className="brand-tagline">Intelligent document conversations</div>
           </div>
 
-          {/* Upload Zone */}
-          <div
-            className={`upload-zone ${dragOver ? "drag-over" : ""}`}
-            onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
-            onDragLeave={() => setDragOver(false)}
-            onDrop={handleDrop}
-          >
-            <input
-              type="file"
-              accept=".pdf"
-              onChange={(e) => handleUpload(e.target.files[0])}
-              disabled={uploading}
-            />
-            <div className="upload-icon-wrap">
-              <UploadIcon />
+          <div className="upload-section">
+            <div
+              className={`upload-drop ${drag ? 'drag' : ''}`}
+              onDragOver={e => { e.preventDefault(); setDrag(true); }}
+              onDragLeave={() => setDrag(false)}
+              onDrop={e => { e.preventDefault(); setDrag(false); handleFile(e.dataTransfer.files[0]); }}
+            >
+              <input type="file" accept=".pdf" onChange={e => handleFile(e.target.files[0])} disabled={uploading} />
+              <div className="upload-icon">{uploading ? '⟳' : '📄'}</div>
+              <div className="upload-label">{uploading ? 'Processing…' : 'Upload PDF'}</div>
+              <div className="upload-sub">{uploading ? 'chunking · embedding · indexing' : 'drag & drop or click to browse'}</div>
+              {uploading && <div className="upload-progress"><div className="upload-progress-fill" /></div>}
             </div>
-            <div className="upload-title">{uploading ? "Processing PDF..." : "Upload PDF"}</div>
-            <div className="upload-sub">{uploading ? "Chunking + Embedding..." : "drag & drop or click"}</div>
-            {uploading && (
-              <div className="uploading-bar">
-                <div className="uploading-bar-fill" />
-              </div>
-            )}
           </div>
 
-          {/* Mode Badge */}
-          <div className={`mode-badge ${activePdfId ? "rag" : "normal"}`}>
+          <div className={`mode-pill ${isRag ? 'rag' : 'normal'}`}>
             <div className="mode-dot" />
-            {activePdfId
-              ? `RAG Mode — ${activePdf?.name?.slice(0, 20) || "PDF"}...`
-              : "Normal Chat Mode"}
+            {isRag
+              ? `RAG · ${activePdfInfo?.name?.slice(0, 18)}${activePdfInfo?.name?.length > 18 ? '…' : ''}`
+              : 'General Knowledge Mode'}
           </div>
 
-          {/* PDF List */}
-          <div className="pdfs-section">
-            {pdfs.length > 0 && <div className="pdfs-title">Uploaded PDFs</div>}
+          <div className="pdf-list">
+            {pdfs.length > 0 && <div className="pdf-list-title">Documents</div>}
             {pdfs.map(pdf => (
-              <div
-                key={pdf.pdf_id}
-                className={`pdf-card ${activePdfId === pdf.pdf_id ? "active" : ""}`}
-              >
-                <div className="pdf-card-header" onClick={() =>
-                  setExpandedPdf(expandedPdf === pdf.pdf_id ? null : pdf.pdf_id)
-                }>
-                  <span className="pdf-icon"><FileIcon /></span>
-                  <span className="pdf-name">{pdf.name}</span>
-                  <ChevronIcon open={expandedPdf === pdf.pdf_id} />
+              <div key={pdf.pdf_id} className={`pdf-item ${activePdf === pdf.pdf_id ? 'active' : ''}`}>
+                <div className="pdf-item-top" onClick={() => setExpanded(e => e === pdf.pdf_id ? null : pdf.pdf_id)}>
+                  <div className="pdf-file-icon">📑</div>
+                  <div className="pdf-info">
+                    <div className="pdf-name">{pdf.name}</div>
+                    <div className="pdf-chunks">{pdf.chunks} chunks · sliding window</div>
+                  </div>
+                  <span className={`pdf-chevron ${expanded === pdf.pdf_id ? 'open' : ''}`}>⌄</span>
                 </div>
-                {expandedPdf === pdf.pdf_id && (
-                  <>
-                    <div className="pdf-meta">{pdf.chunks_count} chunks · sliding window</div>
-                    <div className="pdf-actions">
-                      <button
-                        className={`btn-use ${activePdfId === pdf.pdf_id ? "active" : ""}`}
-                        onClick={() => setActivePdfId(activePdfId === pdf.pdf_id ? null : pdf.pdf_id)}
-                      >
-                        {activePdfId === pdf.pdf_id ? "✓ Active" : "Use this PDF"}
-                      </button>
-                      <button className="btn-delete" onClick={() => handleRemovePdf(pdf.pdf_id)}>
-                        <TrashIcon />
-                      </button>
-                    </div>
-                  </>
+                {expanded === pdf.pdf_id && (
+                  <div className="pdf-actions">
+                    <button
+                      className={`btn-activate ${activePdf === pdf.pdf_id ? 'on' : ''}`}
+                      onClick={() => setActivePdf(activePdf === pdf.pdf_id ? null : pdf.pdf_id)}
+                    >
+                      {activePdf === pdf.pdf_id ? '✦ Active' : 'Activate'}
+                    </button>
+                    <button className="btn-del" onClick={() => removePdf(pdf.pdf_id)}>✕</button>
+                  </div>
                 )}
               </div>
             ))}
           </div>
-        </div>
+        </aside>
 
-        {/* ── Chat Area ── */}
-        <div className="chat-area">
+        {/* ── CHAT MAIN ── */}
+        <main className="main">
           <div className="chat-header">
-            <div>
-              <div className="chat-title">
-                {activePdfId ? `Chatting with: ${activePdf?.name || "PDF"}` : "AI Assistant"}
+            <div className="header-left">
+              <div className="header-title">
+                {isRag ? (
+                  <>Chatting with <span className="header-doc-badge">{activePdfInfo?.name}</span></>
+                ) : (
+                  'General Assistant'
+                )}
               </div>
-              <div className="chat-subtitle">
-                {activePdfId
-                  ? "Answers based on your PDF document"
-                  : "General knowledge mode — upload a PDF to enable RAG"}
+              <div className="header-sub">
+                {isRag
+                  ? `RAG mode · sliding window retrieval · ${activePdfInfo?.chunks} indexed chunks`
+                  : 'Upload a PDF to enable document Q&A mode'}
               </div>
             </div>
+            {messages.length > 0 && (
+              <button className="btn-clear" onClick={() => setMessages([])}>clear chat</button>
+            )}
           </div>
 
-          {/* Messages */}
           <div className="messages">
             {messages.length === 0 ? (
-              <div className="empty-state">
-                <div className="empty-icon">✦</div>
+              <div className="empty">
+                <div className="empty-ornament">❝</div>
                 <div className="empty-title">
-                  {activePdfId ? "Ask anything about your PDF" : "Start a conversation"}
+                  {isRag ? 'Ask anything about your document' : 'Start a conversation'}
                 </div>
-                <div className="empty-sub">
-                  {activePdfId
-                    ? "I'll search through your document using sliding window RAG to find the most relevant context."
-                    : "Upload a PDF from the sidebar to enable RAG mode, or just chat normally."}
+                <div className="empty-desc">
+                  {isRag
+                    ? 'DocMind will search through your PDF using sliding window RAG to find the most relevant context and craft a precise answer.'
+                    : 'Upload a PDF from the sidebar to enable document intelligence mode, or ask me anything in general mode.'}
                 </div>
+                {isRag && (
+                  <div className="empty-hints">
+                    {HINTS.map(h => (
+                      <div key={h} className="hint-chip" onClick={() => send(h)}>{h}</div>
+                    ))}
+                  </div>
+                )}
               </div>
             ) : (
-              messages.map((msg, i) => <Message key={i} msg={msg} />)
+              messages.map((m, i) => <Message key={i} msg={m} />)
             )}
             {thinking && (
-              <div className="message bot">
-                <div className="avatar bot"><BotIcon /></div>
-                <div className="typing">
-                  <span /><span /><span />
+              <div className="typing-row">
+                <div className="avatar bot">✦</div>
+                <div className="typing-bubble">
+                  <div className="typing-dot" />
+                  <div className="typing-dot" />
+                  <div className="typing-dot" />
                 </div>
               </div>
             )}
-            <div ref={messagesEndRef} />
+            <div ref={endRef} />
           </div>
 
-          {/* Input */}
           <div className="input-area">
-            <div className="input-wrap">
+            <div className="input-box">
               <textarea
-                ref={textareaRef}
+                ref={taRef}
                 rows={1}
-                placeholder={activePdfId ? "Ask about your PDF..." : "Ask me anything..."}
+                placeholder={isRag ? 'Ask about your document…' : 'Ask me anything…'}
                 value={input}
-                onChange={(e) => {
+                onChange={e => {
                   setInput(e.target.value);
-                  e.target.style.height = "auto";
-                  e.target.style.height = Math.min(e.target.scrollHeight, 120) + "px";
+                  e.target.style.height = 'auto';
+                  e.target.style.height = Math.min(e.target.scrollHeight, 130) + 'px';
                 }}
-                onKeyDown={handleKeyDown}
+                onKeyDown={e => {
+                  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); }
+                }}
               />
-              <button className="send-btn" onClick={handleSend} disabled={!input.trim() || thinking}>
-                <SendIcon />
+              <button className="send-btn" onClick={() => send()} disabled={!input.trim() || thinking}>
+                ➤
               </button>
             </div>
-            <div className="input-hint">
-              Enter to send · Shift+Enter for new line ·{" "}
-              {activePdfId ? "RAG mode active" : "Normal mode"}
+            <div className="input-footer">
+              <span className="input-hint">↵ send · shift+↵ newline · {isRag ? '◈ rag mode' : '◇ general mode'}</span>
+              <span className="char-count">{input.length}</span>
             </div>
           </div>
-        </div>
+        </main>
       </div>
 
-      {toast && (
-        <Toast
-          message={toast.message}
-          type={toast.type}
-          onClose={() => setToast(null)}
-        />
-      )}
+      <Toast toasts={toasts} />
     </>
   );
 }
