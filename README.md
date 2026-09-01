@@ -1,4 +1,4 @@
-# ✦ DocMind — RAG-Powered PDF Intelligence
+#  DocMind — RAG-Powered PDF Intelligence
 
 > Chat with your PDFs using Retrieval-Augmented Generation. Upload any document, ask questions in natural language, and get precise answers grounded in your document's content.
 
